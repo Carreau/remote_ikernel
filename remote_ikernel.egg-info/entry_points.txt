@@ -1,0 +1,3 @@
+[console_scripts]
+remote_ikernel = remote_ikernel.__main__:main
+

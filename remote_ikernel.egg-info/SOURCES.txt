@@ -1,0 +1,13 @@
+MANIFEST.in
+README.rst
+remote_ikernel/__init__.py
+remote_ikernel/__main__.py
+remote_ikernel/compat.py
+remote_ikernel/kernel.py
+remote_ikernel/manage.py
+remote_ikernel.egg-info/PKG-INFO
+remote_ikernel.egg-info/SOURCES.txt
+remote_ikernel.egg-info/dependency_links.txt
+remote_ikernel.egg-info/entry_points.txt
+remote_ikernel.egg-info/requires.txt
+remote_ikernel.egg-info/top_level.txt
