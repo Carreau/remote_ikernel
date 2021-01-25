@@ -18,7 +18,6 @@ import time
 import uuid
 
 import pexpect
-import warnings
 
 from tornado.log import LogFormatter
 
@@ -174,20 +173,6 @@ class RemoteIKernel(object):
 
     """
 
-    @property
-    def host(self):
-        return self._host
-
-    @host.setter
-    def host(self, new):
-        if isinstance(new, bytes):
-            warnings.warn('Automatically Decoding self.host assignment to bytes. Did you forget a `.decode()` ? ')
-            self._host = new.decode()
-        elif isinstance(new, str):
-            self._host = new
-        else:
-            raise TypeError('self.host can only be assigned `str` or `bytes`, not `{}`'.format(type(new)))
-
     def __init__(self, connection_info=None, interface='sge', cpus=1, pe='smp',
                  kernel_cmd='ipython kernel', workdir=None, tunnel=True,
                  host=None, precmd=None, launch_args=None, verbose=False,
@@ -211,12 +196,7 @@ class RemoteIKernel(object):
         self.cpus = cpus
         self.pe = pe
         self.kernel_cmd = kernel_cmd
-        self._host = ''
-        if not host :
-            self.host = ''
-        else:
-            self.host = host
-
+        self.host = host  # Name of node to be changed once connection is ready.
         self.tunnel_hosts = tunnel_hosts
         self.connection = None  # will usually be a spawned pexpect
         self.workdir = workdir
@@ -351,10 +331,10 @@ class RemoteIKernel(object):
         # hostnames whould be alphanumeric with . and - permitted
         # This way we also ignore the echoed echo command
         qsub_i.expect('Running on ([\w.-]+)')
-        node = qsub_i.match.groups()[0] or b''
+        node = qsub_i.match.groups()[0]
 
         self.log.info("Established session on node: {0}.".format(node))
-        self.host = node.decode()
+        self.host = node
 
     def launch_sge(self, qlogin='qlogin'):
         """
@@ -381,9 +361,9 @@ class RemoteIKernel(object):
         # Hopefully this text is universal?
         qlogin.expect('Establishing .* session to host (.*) ...')
 
-        node = qlogin.match.groups()[0] or b''
+        node = qlogin.match.groups()[0]
         self.log.info("Established session on node: {0}.".format(node))
-        self.host = node.decode()
+        self.host = node
 
     def launch_slurm(self):
         """
@@ -410,9 +390,9 @@ class RemoteIKernel(object):
         # Hopefully this text is universal?
         srun.expect('srun: Node (.*), .* tasks started')
 
-        node = srun.match.groups()[0] or b''
+        node = srun.match.groups()[0]
         self.log.info("Established session on node: {0}.".format(node))
-        self.host = node.decode()
+        self.host = node
 
     def launch_lsf(self):
         """
@@ -438,9 +418,9 @@ class RemoteIKernel(object):
         # Hopefully this text is universal?
         bsub.expect('<<Starting on (.*)>>')
 
-        node = bsub.match.groups()[0] or b''
+        node = bsub.match.groups()[0]
         self.log.info("Established session on node: {0}.".format(node))
-        self.host = node.decode()
+        self.host = node
 
     def start_kernel(self):
         """
@@ -485,18 +465,10 @@ class RemoteIKernel(object):
         # whilst simultaneously starting the kernel ended up deleting
         # the file before it was read.
         conn.sendline('rm -f {0}'.format(kernel_name))
-
-        self.log.info('closing connection...')
-        self.log.info('... New line')
-        conn.write('\r\n')
-        self.log.info('... EOF')
-        conn.write(pexpect.EOF)
+        conn.sendline('exit')
 
         # Could check this for errors?
-        self.log.info('... expect EOF')
-        conn.expect(pexpect.EOF)
-        self.log.info('... got EOF')
-        conn.close()
+        conn.expect('exit')
 
     def tunnel_connection(self):
         """
@@ -625,6 +597,10 @@ class RemoteIKernel(object):
     @property
     def tunnel_cmd(self):
         """Return a tunnelling command that just needs a port."""
+        # zmq needs str in Python 3, but pexpect gives bytes
+        if hasattr(self.host, 'decode'):
+            self.host = self.host.decode('utf-8')
+
         # One connection can tunnel all the ports
         ports_str = " ".join(["-L 127.0.0.1:{{{port}}}:127.0.0.1:{{{port}}}"
                               "".format(port=port) for port in PORT_NAMES])
